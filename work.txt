@@ -1,6 +1,52 @@
 任务描述
 暂无内容
 任务实现
+与MySQL部分的设置一样，指定一个节点安装redis
+
+安装Mongo镜像
+首先在目标服务器上安装Mongo镜像
+`docker pull mongo:latest `
+更新目标服务器的label
+为目标服务器定义label，方便docker swarm在创建Service时，将Service部署在目标服务器上，以下我们在node4上定义了一个label `server=mongo`
+`docker node update --label-add server=mongo node4`
+
+在docker swarm中创建Mongo服务
+将机器上的Redis配置目录映射到docker容器中，并把mongo的服务加入到my-net网络
+`docker service create --name mongo --constraint node.labels.server==mongo --network my-net  --mount type=bind,source=/root/oomall-2022/conf/mongo,destination=/mongo  -e MONGO_INITDB_ROOT_USERNAME=root -e MONGO_INITDB_ROOT_PASSWORD=123456  -d mongo:latest mongod --auth `
+其中` -e MONGO_INITDB_ROOT_USERNAME=root`是默认的用户名 `-e MONGO_INITDB_ROOT_PASSWORD=123456`是连接密码为123456
+在运行mongo服务的节点上查看mongo的服务是否正常运行
+看一下mongo的服务运行在哪台服务器
+`docker service ps mongo`
+切换到运行mongo服务的机器，看一下mongo容器在这台机器的container id，将容器的CONTAINER ID拷贝替换下述命令中[CONTAINER ID],用这个容器运行mongo的命令行工具mongosh
+`docker exec -it [CONTAINER ID] mongosh -u root -p 123456`
+
+进入mongosh后，先运行下面的命令切换database
+
+`use oomall`
+
+再在oomall建立demouser用户，给用户赋予读写和数据库管理员的角色
+
+db.createUser({user:"demouser",pwd:"123456",roles:[{role:"readWrite",db:"oomall"},{role:"dbAdmin",db:"oomall"}]})
+
+如果均返回{ok:1}则可以用demouser用户正常使用mongo的oomall数据库了
+
+`docker exec -it [CONTAINER ID] mongosh -u demouser -p 123456 --authenticationDatabase oomall`
+
+restore mongo的数据库
+
+`docker exec -it [CONTAINER ID] mongorestore -u demouser -p 123456 --authenticationDatabase oomall -d oomall --dir /mongo/oomall --drop`
+
+此命令会先删除所有数据再用户mongo/oomall下的数据恢复数据库
+
+backup mongo的数据库
+`docker exec -it [CONTAINER ID] mongodump -u demouser -p 123456 --authenticationDatabase oomall -d oomall -o/mongo/oomall1`
+
+
+
+
+任务描述
+暂无内容
+任务实现
 按照之前的安装步骤重新安装MySQL
 
 用以下命令创建mysql

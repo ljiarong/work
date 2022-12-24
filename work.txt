@@ -3,6 +3,51 @@
 任务实现
 与MySQL部分的设置一样，指定一个节点安装redis
 
+安装带BloomFilter的Redis镜像
+首先在目标服务器上安装Redis镜像
+`docker pull redis/redis-stack-server:latest `
+更新目标服务器的label
+为目标服务器定义label，方便docker swarm在创建Service时，将Service部署在目标服务器上，以下我们在node5上定义了一个label `server=redis`
+`docker node update --label-add server=redis node5`
+
+在docker swarm中创建Redis服务
+将机器上的Redis配置目录映射到docker容器中，并把redis的服务加入到my-net网络
+`docker service create --name redis --constraint node.labels.server==redis --mount type=bind,source=/root/oomall-2022/conf/redis,destination=/etc/redis,readonly --network my-net -e CONFFILE=/etc/redis/redis.conf  -d redis/redis-stack-server:latest `
+其中`-e CONFFILE=/etc/redis/redis.conf`是指定redis的配置文件，在配置文件中我们设定了redis的连接密码为123456
+
+redis的配置文件目录redis映射到容器中
+在运行redis服务的节点上查看redis的服务是否正常运行
+看一下redis的服务运行在哪台服务器
+`docker service ps redis`
+切换到运行redis服务的机器，看一下redis容器在这台机器的container id，将容器的CONTAINER ID拷贝替换下述命令中[CONTAINER ID],用这个容器运行redis的命令行工具redis-cli
+`docker exec -it [CONTAINER ID] redis-cli`
+
+进入redis-cli后，先运行下面的命令输入密码
+
+auth 123456
+
+再测试Bloom过滤器是否正常
+
+BF.ADD testFilter hello
+
+BF.EXISTS testFilter hello
+
+如果均返回(integer) 1则可以正常使用redis了
+
+
+
+
+
+
+
+
+
+
+任务描述
+暂无内容
+任务实现
+与MySQL部分的设置一样，指定一个节点安装redis
+
 安装Mongo镜像
 首先在目标服务器上安装Mongo镜像
 `docker pull mongo:latest `

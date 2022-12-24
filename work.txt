@@ -184,3 +184,22 @@ Format：选Yaml
 Configuration Content：将对应模块的application.yaml内容拷贝进来，注意不能有中文注释
 
 按publish即可
+
+
+
+
+
+选择一台机器用`git clone`下载JavaEEPlatform工程
+在工程中用`mvn clean pre-integration-test -Dmaven.test.skip=true`编译部署工程的docker的image
+
+在/root/JavaEEPlatform下建立logs目录
+在管理机上创建工程的服务
+`docker service create --name goodsdemoaop  --network my-net --publish published=8080,target=8080 --mount type=bind,source=/root/JavaEEPlatform/logs,destination=/app/logs -d xmu-javaee/goodsdemoaop:0.0.1-SNAPSHOT`
+用`docker service ps goodsdemoaop`即可已看到该服务运行在哪个节点上
+切换到运行goodsdemoaop服务的机器，
+
+在该机器的/root/JavaEEPlatform/logs目录下就能看到服务器的日志
+
+用`tail -f  xxxx.log`监看服务器的日志
+
+在日志中的最后一条可以看到服务器产生的token=XXXXX,拷贝到jmx的HTTP Header Manager里

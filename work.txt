@@ -1,0 +1,140 @@
+任务描述
+暂无内容
+任务实现
+按照之前的安装步骤重新安装MySQL
+
+用以下命令创建mysql
+
+docker service create --name mysql --constraint node.labels.server==mysql --mount type=bind,source=/root/oomall-2022/mysql/sql,destination=/sql,readonly --mount type=bind,source=/root/oomall-2022/mysql/conf.d,destination=/etc/mysql/conf.d,readonly  --network my-net -e MYSQL_ROOT_PASSWORD=123456  -d mysql:latest`
+其中`-e MYSQL_ROOT_PASSWORD=123456`是设定数据库root账户密码
+
+MySQL的配置文件目录conf.d和数据库初始化脚本都在oomall-2022的mysql目录下，需要把这些文件拷贝到运行mysql的节点上，并映射到容器中
+在运行mysql服务的节点上运行sql脚本
+看一下mysql的服务运行在哪台服务器
+`docker service ps mysql`
+切换到运行mysql服务的机器，看一下mysql容器在这台机器的container id，将容器的CONTAINER ID拷贝替换下述命令中[CONTAINER ID],用这个容器运行mysql的命令
+`docker exec -it [CONTAINER ID] mysql -uroot -p`
+用root账号登录mysql服务器，在运行起来的mysql命令行中用`source /sql/database.sql`建立oomall各模块数据库
+
+分别初始化各模块的数据
+以goods模块为例，用`use goods`切换数据库
+用`source /sql/goods.sql`插入初始数据
+
+其他模块数据库的安装类似
+
+按照之前的安装步骤安装Redis和Mongo
+
+在node2上安装打包oomall-2022
+
+git clone http://git.xmu.edu.cn/mingqiu/oomall-2022.git
+
+修改oomall-2022下的pom文件，将除core以外的模块删除
+
+在oomall-2022目录用以下命令安装core和oomall的pom
+
+mvn clean install 
+
+如果第二次打包不用重复上述过程，直接在core目录下运行
+
+mvn clean install
+
+在oomall-2022目录下运行
+
+git checkout pom.xml
+
+将pom.xml恢复原样,
+
+在goods目录下运行
+
+mvn clean pre-integration-test -Dmaven.test.skip=true
+
+在node2的/root/上建立logs目录
+
+在管理机上创建服务
+
+docker node update --label-add server=goods node2
+
+docker service create --name goods  --network my-net --constraint node.labels.server==goods --publish published=8080,target=8080 --mount type=bind,source=/root/logs,destination=/app/logs -d xmu-oomall/goods:0.0.1-SNAPSHOT
+
+
+
+
+任务描述
+暂无内容
+任务实现
+设定在node2 安装rocketmq的nameserver和dashboard，在node3安装rocketmq的broker
+
+在管理机上
+
+docker node update --label-add server=rocketmq-namesrv node2
+
+docker node update --label-add server=rocketmq-broker node3
+
+在node2上pull docker镜像
+
+docker pull apache/rocketmq 
+
+docker pull apacherocketmq/rocketmq-dashboard:latest
+
+在node3上pull docker镜像
+
+docker pull apache/rocketmq 
+
+将broker.conf文件拷贝到/root/rocketmq目录下
+
+先启动RocketMQ的NameServer 服务
+
+docker service create --name rocketmq-namesrv --constraint node.labels.server==rocketmq-namesrv  --network my-net  -d apache/rocketmq ./mqnamesrv
+
+再启动RocketMQ的Broker 服务
+
+docker service create --name rocketmq-broker --constraint node.labels.server==rocketmq-broker --mount type=bind,source=/root/rocketmq,destination=/rocketmq  --network my-net  -d apache/rocketmq ./mqbroker -n rocketmq-namesrv:9876 -c /rocketmq/broker.conf
+
+安装Rocket Dashboard
+
+docker service create --name rocketmq-dashboard --constraint node.labels.server==rocketmq-namesrv  --network my-net  -d -e "JAVA_OPTS=-Drocketmq.namesrv.addr=rocketmq-namesrv:9876" -p 8100:8080 -t apacherocketmq/rocketmq-dashboard:latest
+
+然后访问集群的任何的8100端口就可以看到服务器了
+
+
+
+
+
+任务描述
+暂无内容
+任务实现
+设定在node2 安装nacos
+
+在管理机上
+
+docker node update --label-add server=nacos node2
+
+在node2上pull docker镜像
+
+docker pull nacos/nacos-server:v2.1.2
+
+启动nacos
+
+docker service create --name nacos --constraint node.labels.server==nacos  --network my-net --publish published=8848,target=8848  -e MODE=standalone  -e PREFER_HOST_MODE=hostname -d nacos/nacos-server:v2.1.2
+
+其中MODE表示用standalone模式启动， PREFER_HOST_MODE表示支持hostname方式，因为用的是swarn，需要用服务名查询
+
+设置集中配置的application.yaml
+
+在浏览器中访问http://[IP]:8848/nacos, IP为集群中任意一台服务器ip
+
+输入默认用户名/密码: nacos/nacos
+
+即可进入nacos的控制台
+
+在ConfigurationManagement->Configurations中增加一项配置Create Configuration
+
+Data Id的格式为 ${spring.application.name}.yaml, 如商品模块为goods-service.yaml，商铺模块为shop-service.yaml，支付模块为payment-service.yaml
+
+Group：为默认的DEFAULT_GROUP
+
+Format：选Yaml
+
+Configuration Content：将对应模块的application.yaml内容拷贝进来，注意不能有中文注释
+
+按publish即可

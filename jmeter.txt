@@ -1,1 +1,1 @@
-jmeter -n -t test.jmx -l test.jtl -e -o /path
+jmeter -n -t exp4/get.jmx -l exp4/50010/test.jtl -e -o exp4/50010
